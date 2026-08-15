@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "references": {
+    "mcp-sdk": {
+      "repository": "modelcontextprotocol/python-sdk",
+      "description": "MCP Python SDK 实现细节（三种传输、Server/Client 用法、Tool schema）"
+    },
+    "fastapi": {
+      "repository": "fastapi/fastapi",
+      "description": "FastAPI 实现与用法（依赖注入、中间件、异常处理）"
+    }
+  },
+  "mcp": {
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer {env:GITHUB_TOKEN}"
+      }
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp"],
+      "enabled": true
+    }
+  }
+}
