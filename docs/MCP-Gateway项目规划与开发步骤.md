@@ -134,7 +134,7 @@ mcp-gateway/
 - [x] `app/core/logging.py`：structlog 结构化日志（JSON）
 - [x] 加 `.github/workflows/ci.yml`：ruff lint + pytest
 - [x] 写 `README.md` 骨架 + 架构图
-- **验收**：`docker compose up` 后访问 `/health` 返回 ok，CI 全绿 ✅（2026-08-15 本地已通过；CI 待推送后观察）
+- **验收**：`docker compose up` 后访问 `/health` 返回 ok，CI 全绿 ✅（2026-08-15 本地与 GitHub Actions 均通过，run #31890245357）
 
 ### 阶段 2：协议层打通（W2）—— 核心
 - [ ] `app/mcp/transports.py`：实现 stdio / SSE / Streamable HTTP 三种传输的连接管理
