@@ -123,18 +123,18 @@ mcp-gateway/
 ## 8. 分阶段开发步骤（详细到可执行）
 
 ### 阶段 0：环境准备（0.5 天）
-- [ ] 安装 Python 3.12、uv、Git、Docker
-- [ ] `git init` + 建 GitHub 空仓库并关联远程
-- [ ] 创建目录结构骨架
+- [x] 安装 Python 3.12、uv、Git、Docker
+- [x] `git init` + 建 GitHub 空仓库并关联远程
+- [x] 创建目录结构骨架
 
 ### 阶段 1：工程骨架 + CI 跑通（W1）
-- [ ] 初始化 `pyproject.toml`（依赖：fastapi、uvicorn、mcp、pydantic-settings、structlog、prometheus-fastapi-instrumentator、python-jose、pyyaml；dev：pytest、pytest-asyncio、httpx、ruff）
-- [ ] `app/main.py`：最小 FastAPI 应用，含 `/health` 和 `/metrics`
-- [ ] `app/config.py`：pydantic-settings，从 YAML/环境变量读配置
-- [ ] `app/core/logging.py`：structlog 结构化日志（JSON）
-- [ ] 加 `.github/workflows/ci.yml`：ruff lint + pytest
-- [ ] 写 `README.md` 骨架 + 架构图
-- **验收**：`docker compose up` 后访问 `/health` 返回 ok，CI 全绿
+- [x] 初始化 `pyproject.toml`（依赖：fastapi、uvicorn、mcp、pydantic-settings、structlog、prometheus-fastapi-instrumentator、python-jose、pyyaml；dev：pytest、pytest-asyncio、httpx、ruff）
+- [x] `app/main.py`：最小 FastAPI 应用，含 `/health` 和 `/metrics`
+- [x] `app/config.py`：pydantic-settings，从 YAML/环境变量读配置
+- [x] `app/core/logging.py`：structlog 结构化日志（JSON）
+- [x] 加 `.github/workflows/ci.yml`：ruff lint + pytest
+- [x] 写 `README.md` 骨架 + 架构图
+- **验收**：`docker compose up` 后访问 `/health` 返回 ok，CI 全绿 ✅（2026-08-15 本地已通过；CI 待推送后观察）
 
 ### 阶段 2：协议层打通（W2）—— 核心
 - [ ] `app/mcp/transports.py`：实现 stdio / SSE / Streamable HTTP 三种传输的连接管理
@@ -191,12 +191,15 @@ mcp-gateway/
 
 ## 11. 当前进度（每次开发后更新此节）
 
-- **状态**：未开始（规划阶段）
-- **已完成阶段**：无（环境已就绪）
-- **仓库**：https://github.com/NightR71/MCP-Gateway-Demo.git（origin 已关联）
-- **Git 身份**：NightR71 / 1553364473@qq.com（已在本地配置）
-- **opencode 配置**：`opencode.json` + `AGENTS.md` + 两个 skill（`python-backend`、`mcp-dev`）已生成
-- **下一步动作**：阶段 0 收尾（装 Python 3.12 / uv / Node.js / Docker），然后进入阶段 1
+- **状态**：阶段 1 已完成（工程骨架 + CI 就绪）
+- **已完成阶段**：阶段 0（环境准备）、阶段 1（工程骨架 + CI）
+- **仓库**：https://github.com/NightR71/MCP-Gateway-Demo.git（首次 push 已完成，main 已跟踪 origin/main）
+- **Git 身份**：NightR71 / 1553364473@qq.com（已配置）
+- **认证**：PAT 已获取并完成认证（credential.helper store 已记住凭据）；`GITHUB_TOKEN` 已通过 setx 写入用户环境变量（重开终端生效）
+- **环境**：Python 3.12.11（uv 管理，`.python-version` 已固定 3.12）；uv 下载 GitHub Release 资源需 `UV_NATIVE_TLS=1`（本机证书问题）；Docker Desktop 已配置国内镜像加速器（registry-mirrors，写入 `~/.docker/daemon.json`）
+- **阶段 1 产出**：`pyproject.toml` + `uv.lock`、`app/main.py`（`/health`、`/metrics`）、`app/config.py`（YAML+环境变量配置中心）、`app/core/logging.py`（structlog JSON）、`app/core/metrics.py`、`app/api/deps.py`、`app/api/routes/health.py`、`app/schemas/health.py`、`tests/`（5 用例）、`Dockerfile` + `docker-compose.yml`、`.github/workflows/ci.yml`、README 骨架
+- **验证结果**：`ruff check` 通过；`pytest` 5/5 通过；本地 uvicorn `/health` 正常；`docker compose up --build` 后 `/health`、`/metrics` 均正常（2026-08-15）
+- **下一步动作**：进入阶段 2（协议层打通：`app/mcp/` 三传输客户端 + 工具注册中心 + `servers/demo_sql_server` 最小 echo 工具）
 - **最后更新时间**：2026-08-15
 
 ---
@@ -208,3 +211,30 @@ mcp-gateway/
 2. 读仓库 `README.md` 和 `pyproject.toml`，确认当前代码状态
 3. 从第 11 节「当前进度」标明的下一步开始开发
 4. 每完成一个阶段，更新第 11 节「当前进度」
+
+---
+
+## 13. 环境认证清单（一次性手动步骤，✅ 均已完成 2026-08-15）
+
+环境已全部就绪（Node / Docker / uv / Python 均装好）。
+**PAT 已获取并完成认证**——凭据存于本机 git credential store 与 `GITHUB_TOKEN` 用户环境变量；明文不再记录于本文档（防止推送到公网泄露）。
+
+### 创建 PAT（浏览器操作）
+1. GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)
+2. 勾选 scope：`repo`（全选）、`read:org`、`workflow`
+3. 复制生成的 token（形如 `ghp_...`，只显示一次）
+
+### 认证 git push（本机终端执行，需 PAT）
+```bash
+# 1) 修复失效的 credential helper（原 manager-core 指向不存在的命令）
+git config --global credential.helper store
+# 2) 首次 push（提示输入用户名 NightR71、密码填 PAT，之后自动记住）
+cd D:\New_Project
+git push -u origin main
+```
+
+### 设置 GITHUB_TOKEN（供 GitHub MCP 用）
+```bash
+setx GITHUB_TOKEN "ghp_你的token"
+# 重开终端 / opencode 后生效
+```
