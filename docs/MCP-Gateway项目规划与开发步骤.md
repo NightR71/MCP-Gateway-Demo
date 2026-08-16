@@ -194,6 +194,7 @@ mcp-gateway/
 - **状态**：阶段 3 已完成（统一 API + 鉴权限流）
 - **已完成阶段**：阶段 0（环境准备）、阶段 1（工程骨架 + CI）、阶段 2（协议层打通）、阶段 3（统一 API + 鉴权限流）
 - **仓库**：https://github.com/NightR71/MCP-Gateway-Demo.git（首次 push 已完成，main 已跟踪 origin/main）
+- **提交**：阶段 2 + 阶段 3 代码已提交本地 main，commit `d43643d`「feat: 阶段 2 协议层打通 + 阶段 3 统一 API 与鉴权限流」（2026-08-16，28 文件 +1035 行；尚未 push）
 - **Git 身份**：NightR71 / 1553364473@qq.com（已配置）
 - **认证**：PAT 已获取并完成认证（credential.helper store 已记住凭据）；`GITHUB_TOKEN` 已通过 setx 写入用户环境变量（重开终端生效）
 - **环境**：Python 3.12.11（uv 管理，`.python-version` 已固定 3.12）；uv 下载 GitHub Release 资源需 `UV_NATIVE_TLS=1`（本机证书问题）；Docker Desktop 已配置国内镜像加速器（registry-mirrors，写入 `~/.docker/daemon.json`）；**MCP SDK 实际安装为 2.0.0**（服务端用 `mcp.server.mcpserver.MCPServer`，无旧 fastmcp 模块；http 传输函数名为 `streamable_http_client`）；**本机 360 安全软件会拦截 pytest 拉起子进程（WinError 5）；2026-08-16 起 360 已关闭，测试可正常拉起子进程；若复现 WinError 5 先检查 360 是否又开启**
