@@ -137,21 +137,21 @@ mcp-gateway/
 - **验收**：`docker compose up` 后访问 `/health` 返回 ok，CI 全绿 ✅（2026-08-15 本地与 GitHub Actions 均通过，run #31890245357）
 
 ### 阶段 2：协议层打通（W2）—— 核心
-- [ ] `app/mcp/transports.py`：实现 stdio / SSE / Streamable HTTP 三种传输的连接管理
-- [ ] `app/mcp/client.py`：封装 MCP 客户端（连接、list_tools、call_tool）
-- [ ] `app/mcp/schemas.py`：Tool / ToolCall 的 Pydantic 模型
-- [ ] `app/mcp/registry.py`：工具注册中心——读取 YAML 中声明的 server，建立连接，聚合所有工具列表（工具名 → server 的映射）
-- [ ] `servers/demo_sql_server/`：写一个最小 MCP Server（先只暴露 1 个 `echo` 工具，跑通 stdio）
-- **验收**：网关能连上 demo server，并在内部 registry 中列出其工具
+- [x] `app/mcp/transports.py`：实现 stdio / SSE / Streamable HTTP 三种传输的连接管理
+- [x] `app/mcp/client.py`：封装 MCP 客户端（连接、list_tools、call_tool）
+- [x] `app/mcp/schemas.py`：Tool / ToolCall 的 Pydantic 模型
+- [x] `app/mcp/registry.py`：工具注册中心——读取 YAML 中声明的 server，建立连接，聚合所有工具列表（工具名 → server 的映射）
+- [x] `servers/demo_sql_server/`：写一个最小 MCP Server（先只暴露 1 个 `echo` 工具，跑通 stdio）
+- **验收**：网关能连上 demo server，并在内部 registry 中列出其工具 ✅（2026-08-16：`pytest` 12/12 通过；uvicorn 启动日志 `registry_ready connected=1 tools=1`；`demo_sql__echo` 调用返回正确）
 
 ### 阶段 3：统一 API + 鉴权限流（W3）
-- [ ] `app/core/security.py`：API Key 中间件（Header `X-API-Key` 校验，Key 存 SQLite/内存）
-- [ ] `app/core/rate_limit.py`：令牌桶限流（按 API Key 维度）
-- [ ] `app/api/routes/tools.py`：`GET /tools`、`POST /tools/{name}/call`
-- [ ] `app/api/deps.py`：FastAPI 依赖注入（拿当前 key、限流器、registry）
-- [ ] `app/api/routes/servers.py`：server 列表/状态查看
-- [ ] 补单元测试（鉴权 401、限流 429、工具调用成功/失败）
-- **验收**：无 Key 调 `/tools` 返回 401；超限返回 429；带 Key 可正常列出和调用工具
+- [x] `app/core/security.py`：API Key 中间件（Header `X-API-Key` 校验，Key 存 SQLite/内存）
+- [x] `app/core/rate_limit.py`：令牌桶限流（按 API Key 维度）
+- [x] `app/api/routes/tools.py`：`GET /tools`、`POST /tools/{name}/call`
+- [x] `app/api/deps.py`：FastAPI 依赖注入（拿当前 key、限流器、registry）
+- [x] `app/api/routes/servers.py`：server 列表/状态查看
+- [x] 补单元测试（鉴权 401、限流 429、工具调用成功/失败）
+- **验收**：无 Key 调 `/tools` 返回 401；超限返回 429；带 Key 可正常列出和调用工具 ✅（2026-08-16：`pytest` 26/26 通过；uvicorn 真实冒烟：无 Key/错 Key 均 401、第 61 次请求 429 带 Retry-After、带 Key 列出并调用 `demo_sql__echo` 成功、`/servers` 状态正常）
 
 ### 阶段 4：可观测 + demo + 部署（W4）
 - [ ] 完善 `app/core/metrics.py`：工具调用次数/延迟/错误率等指标
@@ -191,16 +191,19 @@ mcp-gateway/
 
 ## 11. 当前进度（每次开发后更新此节）
 
-- **状态**：阶段 1 已完成（工程骨架 + CI 就绪）
-- **已完成阶段**：阶段 0（环境准备）、阶段 1（工程骨架 + CI）
+- **状态**：阶段 3 已完成（统一 API + 鉴权限流）
+- **已完成阶段**：阶段 0（环境准备）、阶段 1（工程骨架 + CI）、阶段 2（协议层打通）、阶段 3（统一 API + 鉴权限流）
 - **仓库**：https://github.com/NightR71/MCP-Gateway-Demo.git（首次 push 已完成，main 已跟踪 origin/main）
 - **Git 身份**：NightR71 / 1553364473@qq.com（已配置）
 - **认证**：PAT 已获取并完成认证（credential.helper store 已记住凭据）；`GITHUB_TOKEN` 已通过 setx 写入用户环境变量（重开终端生效）
-- **环境**：Python 3.12.11（uv 管理，`.python-version` 已固定 3.12）；uv 下载 GitHub Release 资源需 `UV_NATIVE_TLS=1`（本机证书问题）；Docker Desktop 已配置国内镜像加速器（registry-mirrors，写入 `~/.docker/daemon.json`）
+- **环境**：Python 3.12.11（uv 管理，`.python-version` 已固定 3.12）；uv 下载 GitHub Release 资源需 `UV_NATIVE_TLS=1`（本机证书问题）；Docker Desktop 已配置国内镜像加速器（registry-mirrors，写入 `~/.docker/daemon.json`）；**MCP SDK 实际安装为 2.0.0**（服务端用 `mcp.server.mcpserver.MCPServer`，无旧 fastmcp 模块；http 传输函数名为 `streamable_http_client`）；**本机 360 安全软件会拦截 pytest 拉起子进程（WinError 5）；2026-08-16 起 360 已关闭，测试可正常拉起子进程；若复现 WinError 5 先检查 360 是否又开启**
 - **阶段 1 产出**：`pyproject.toml` + `uv.lock`、`app/main.py`（`/health`、`/metrics`）、`app/config.py`（YAML+环境变量配置中心）、`app/core/logging.py`（structlog JSON）、`app/core/metrics.py`、`app/api/deps.py`、`app/api/routes/health.py`、`app/schemas/health.py`、`tests/`（5 用例）、`Dockerfile` + `docker-compose.yml`、`.github/workflows/ci.yml`、README 骨架
-- **验证结果**：`ruff check` 通过；`pytest` 5/5 通过；本地 uvicorn `/health` 正常；`docker compose up --build` 后 `/health`、`/metrics` 均正常（2026-08-15）
-- **下一步动作**：进入阶段 2（协议层打通：`app/mcp/` 三传输客户端 + 工具注册中心 + `servers/demo_sql_server` 最小 echo 工具）
-- **最后更新时间**：2026-08-15
+- **阶段 2 产出**：`app/mcp/schemas.py`（ToolInfo/ToolCallRequest/ToolCallResult/ServerStatus/UnknownToolError，命名空间分隔符用 `__` 以兼容 OpenAI function calling 命名规则）、`app/mcp/transports.py`（stdio/SSE/Streamable HTTP 统一连接工厂）、`app/mcp/client.py`（MCPClient，AsyncExitStack 管理连接生命周期）、`app/mcp/registry.py`（ToolRegistry：并发连接、单点失败不阻塞、`{server}__{tool}` 命名空间映射）、`servers/demo_sql_server/server.py`（echo 工具）、main.py lifespan 接线（registry 挂 `app.state`）、`config/gateway.yaml` 声明 demo_sql server、Settings 新增 `tool_call_timeout`、Dockerfile 补 COPY servers、`tests/test_mcp/`（registry 真实子进程集成测试 3 例 + schemas 3 例）
+- **验证结果**：`ruff check` + `ruff format --check` 通过；`pytest` 12/12 通过（3.92s）；uvicorn 真实启动冒烟：lifespan 自动连上 demo_sql（`registry_ready connected=1 tools=1`），`/health` 正常（2026-08-16）
+- **阶段 3 产出**：`app/schemas/auth.py`（APIKeyInfo：key/name/rate_limit_per_minute）、`app/core/security.py`（APIKeyStore Protocol + SQLiteAPIKeyStore：标准库 sqlite3 + asyncio.to_thread + Lock 串行化，启动建表 + YAML 种子 INSERT OR IGNORE 幂等）、`app/core/rate_limit.py`（TokenBucket 令牌桶 + RateLimiter 按 Key 维度管理，纯内存无锁）、`app/config.py`（AuthConfig + `get_auth_config()`，读 YAML `auth` 节）、`app/api/deps.py`（KeyStoreDep/RateLimiterDep/CurrentKeyDep/ProtectedDep 依赖链：先鉴权 401 后限流 429）、`app/api/routes/tools.py`（GET /tools、POST /tools/{name}/call，未知工具 404、下游异常 502）、`app/api/routes/servers.py`（GET /servers）、main.py lifespan 接线（key_store + rate_limiter 挂 app.state）、`config/gateway.yaml` 新增 auth 节（演示 Key `dev-key-please-change`，60 次/分钟）、`tests/fixtures/gateway_test.yaml`（:memory: SQLite + test-key/limited-key）、conftest 新增 `gateway_client`（asgi-lifespan 跑完整 lifespan）、`tests/test_core/`（security 3 例 + rate_limit 4 例）、`tests/test_api/`（tools 6 例 + servers 2 例）；新增 dev 依赖 `asgi-lifespan`
+- **阶段 3 验证结果**：`ruff check` 通过；`pytest` 26/26 通过（14.69s）；uvicorn 真实冒烟（须 `uv run uvicorn` 启动使 stdio 子进程拿到 .venv 的 python）：无 Key / 错 Key 均 401，配额 60/分钟下第 61 次请求 429 且带 Retry-After，带 Key 列出 `demo_sql__echo`、调用返回 `echo: smoke`，`/servers` 显示 connected（2026-08-16）
+- **下一步动作**：进入阶段 4（完善 metrics 工具调用指标、demo_sql_server 升级 NL2SQL、Dockerfile/compose 收尾、公网部署拿 demo 链接、README 补演示说明）
+- **最后更新时间**：2026-08-16
 
 ---
 
