@@ -154,12 +154,12 @@ mcp-gateway/
 - **验收**：无 Key 调 `/tools` 返回 401；超限返回 429；带 Key 可正常列出和调用工具 ✅（2026-08-16：`pytest` 26/26 通过；uvicorn 真实冒烟：无 Key/错 Key 均 401、第 61 次请求 429 带 Retry-After、带 Key 列出并调用 `demo_sql__echo` 成功、`/servers` 状态正常）
 
 ### 阶段 4：可观测 + demo + 部署（W4）
-- [ ] 完善 `app/core/metrics.py`：工具调用次数/延迟/错误率等指标
-- [ ] `demo_sql_server` 升级：自然语言 → SQL 查询（复用作者 NL2SQL 经验，SQLite 落库）
-- [ ] 写 `Dockerfile` + `docker-compose.yml`（gateway + demo server）
+- [x] 完善 `app/core/metrics.py`：工具调用次数/延迟/错误率等指标
+- [x] `demo_sql_server` 升级：自然语言 → SQL 查询（复用作者 NL2SQL 经验，SQLite 落库）
+- [x] 写 `Dockerfile` + `docker-compose.yml`（gateway + demo server）
 - [ ] 部署到公网（阿里云轻量/vercel 等），拿到**可点击 demo 链接**
 - [ ] README 补演示录屏 + 使用说明
-- **验收**：面试官点链接能直接看到「Agent 调网关 → 网关调 SQL server」完整闭环
+- **验收**：面试官点链接能直接看到「Agent 调网关 → 网关调 SQL server」完整闭环（代码部分 2026-08-17 完成：`pytest` 59/59；docker compose 双容器全链路冒烟通过；剩公网部署与录屏）
 
 ### 阶段 5：Agent 示例 + 开源推广 + PR（W5–6）
 - [ ] `examples/`：写一个 LangChain / OpenAI function-calling 的 Agent 示例，通过网关调用工具
@@ -191,10 +191,24 @@ mcp-gateway/
 
 ## 11. 当前进度（每次开发后更新此节）
 
-- **状态**：阶段 3 已完成（统一 API + 鉴权限流）
-- **已完成阶段**：阶段 0（环境准备）、阶段 1（工程骨架 + CI）、阶段 2（协议层打通）、阶段 3（统一 API + 鉴权限流）
-- **仓库**：https://github.com/NightR71/MCP-Gateway-Demo.git（首次 push 已完成，main 已跟踪 origin/main）
-- **提交**：阶段 2 + 阶段 3 代码已提交本地 main，commit `d43643d`「feat: 阶段 2 协议层打通 + 阶段 3 统一 API 与鉴权限流」（2026-08-16，28 文件 +1035 行；尚未 push）
+- **状态**：阶段 4 代码部分已完成（metrics + NL2SQL + docker-compose），剩公网部署与演示录屏
+- **已完成阶段**：阶段 0（环境准备）、阶段 1（工程骨架 + CI）、阶段 2（协议层打通）、阶段 3（统一 API + 鉴权限流）、阶段 4 代码部分
+- **仓库**：https://github.com/NightR71/MCP-Gateway-Demo.git（main 已跟踪 origin/main；阶段 2/3 提交 d43643d、f136de6 已推送）
+- **⚠️ 源码丢失与恢复事件（2026-08-17）**：上一会话的阶段 4 源码（db.py / nl2sql.py / server.py 升级版 / 3 个测试文件）神秘丢失，仅剩 `__pycache__` 中的 pyc；本会话已用 marshal 反编译 pyc 提取常量与签名，完整重建全部源码并通过测试。**教训：每个小步骤完成后立即提交 git**
+- **阶段 4 产出**：
+  - `app/core/metrics.py`：`mcp_gateway_tool_calls_total{tool,server,status}` Counter + `mcp_gateway_tool_call_duration_seconds{tool,server}` Histogram + `record_tool_call()` + `ToolCallTimer`（with 退出自动记录，异常自动记 exception）；`app/mcp/registry.py` 的 `call_tool` 已接入（status: ok/error/exception）
+  - `servers/demo_sql_server/db.py`：迷你电商库（customers 5 / products 5 / orders 9 行种子），`init_db` 幂等、`validate_readonly`（SELECT/WITH 单语句 + 危险关键字词边界正则）、`execute_readonly`（max_rows 截断标记）、`get_schema`
+  - `servers/demo_sql_server/nl2sql.py`：13 条「正则关键词 → SQL 模板」规则 + `SUPPORTED_EXAMPLES` 兜底示例 + `question_to_sql()`；规则引擎与工具层解耦，未来可换 LLM 实现
+  - `servers/demo_sql_server/server.py`：4 工具（echo / ask / run_sql / list_tables），结果渲染为 Markdown 表格；`DEMO_SQL_TRANSPORT=http` 时以 Streamable HTTP 运行（DEMO_SQL_HOST/PORT/DB_PATH 环境变量，默认 0.0.0.0:9001、data/demo_sql.db）
+  - Docker：`config/gateway.docker.yaml`（http 传输连 `http://demo_sql:9001/mcp`）+ compose 双服务（demo_sql 带 TCP healthcheck，gateway `depends_on: service_healthy`）
+  - 测试：`tests/test_core/test_metrics.py`（差值断言，指标进程级累积）、`tests/test_servers/test_db.py`（7 例）、`tests/test_servers/test_nl2sql.py`（自洽性：示例必命中规则）、`tests/test_mcp/test_http_transport.py`（独立 http 进程集成测试，防 http 分支回归）；更新 test_tools / test_servers / test_registry 的 1 工具旧断言 → 4 工具
+- **🐞 阶段 4 修掉的两个存量 bug**：
+  1. `app/mcp/transports.py` http 分支按 3 元组解包 `streamable_http_client`，但 **mcp 2.0.0 只 yield (read, write) 两个值**（不再返回 get_session_id）——阶段 2 只测过 stdio，该 bug 潜伏至 docker 冒烟才暴露，已修并补 http 集成测试
+  2. `.dockerignore` 阶段 1 排除了 `servers/`，阶段 2 加了 `COPY servers` 却未同步——`docker compose build` 直接失败，已修
+- **阶段 4 验证结果**（2026-08-17）：`ruff check` + `ruff format` 通过；`pytest` **59/59**（13.75s）；`docker compose up --build` 双容器全链路：`registry_ready connected=1 tools=4`、无 Key 401、列出 4 工具、`demo_sql__ask`「有多少客户？」经 HTTP 返回 5、`/metrics` 含 `mcp_gateway_tool_calls_total{server="demo_sql",status="ok",tool="demo_sql__ask"} 1.0`；本地 uvicorn stdio 模式冒烟同样通过（「总销售额是多少？」→ 20289.0，与种子数据手算一致）
+- **Vercel 部署已备齐（2026-08-17，待用户操作）**：Vercel 官方文档确认 Python 运行时默认 3.12、支持 pyproject+uv.lock、支持 lifespan、自动识别 `app/main.py` 的 `app`——零代码改动。新增 `config/gateway.vercel.yaml`（SQLite 落 /tmp，函数文件系统只读）、`vercel.json`（maxDuration 60s）；**完整步骤与验收清单见 `docs/部署到Vercel.md`**（含 Render/Docker 备选）。需在 Vercel 项目配两个环境变量：`GATEWAY_CONFIG_FILE=config/gateway.vercel.yaml`、`DEMO_SQL_DB_PATH=/tmp/demo_sql.db`
+- **下一步动作**：用户按 `docs/部署到Vercel.md` 部署拿 demo 链接 → README 补链接与演示录屏 → 进入阶段 5（examples/ Agent 调用示例、开源推广、向 MCP 生态提 PR）
+- **最后更新时间**：2026-08-17
 - **Git 身份**：NightR71 / 1553364473@qq.com（已配置）
 - **认证**：PAT 已获取并完成认证（credential.helper store 已记住凭据）；`GITHUB_TOKEN` 已通过 setx 写入用户环境变量（重开终端生效）
 - **环境**：Python 3.12.11（uv 管理，`.python-version` 已固定 3.12）；uv 下载 GitHub Release 资源需 `UV_NATIVE_TLS=1`（本机证书问题）；Docker Desktop 已配置国内镜像加速器（registry-mirrors，写入 `~/.docker/daemon.json`）；**MCP SDK 实际安装为 2.0.0**（服务端用 `mcp.server.mcpserver.MCPServer`，无旧 fastmcp 模块；http 传输函数名为 `streamable_http_client`）；**本机 360 安全软件会拦截 pytest 拉起子进程（WinError 5）；2026-08-16 起 360 已关闭，测试可正常拉起子进程；若复现 WinError 5 先检查 360 是否又开启**
@@ -203,8 +217,6 @@ mcp-gateway/
 - **验证结果**：`ruff check` + `ruff format --check` 通过；`pytest` 12/12 通过（3.92s）；uvicorn 真实启动冒烟：lifespan 自动连上 demo_sql（`registry_ready connected=1 tools=1`），`/health` 正常（2026-08-16）
 - **阶段 3 产出**：`app/schemas/auth.py`（APIKeyInfo：key/name/rate_limit_per_minute）、`app/core/security.py`（APIKeyStore Protocol + SQLiteAPIKeyStore：标准库 sqlite3 + asyncio.to_thread + Lock 串行化，启动建表 + YAML 种子 INSERT OR IGNORE 幂等）、`app/core/rate_limit.py`（TokenBucket 令牌桶 + RateLimiter 按 Key 维度管理，纯内存无锁）、`app/config.py`（AuthConfig + `get_auth_config()`，读 YAML `auth` 节）、`app/api/deps.py`（KeyStoreDep/RateLimiterDep/CurrentKeyDep/ProtectedDep 依赖链：先鉴权 401 后限流 429）、`app/api/routes/tools.py`（GET /tools、POST /tools/{name}/call，未知工具 404、下游异常 502）、`app/api/routes/servers.py`（GET /servers）、main.py lifespan 接线（key_store + rate_limiter 挂 app.state）、`config/gateway.yaml` 新增 auth 节（演示 Key `dev-key-please-change`，60 次/分钟）、`tests/fixtures/gateway_test.yaml`（:memory: SQLite + test-key/limited-key）、conftest 新增 `gateway_client`（asgi-lifespan 跑完整 lifespan）、`tests/test_core/`（security 3 例 + rate_limit 4 例）、`tests/test_api/`（tools 6 例 + servers 2 例）；新增 dev 依赖 `asgi-lifespan`
 - **阶段 3 验证结果**：`ruff check` 通过；`pytest` 26/26 通过（14.69s）；uvicorn 真实冒烟（须 `uv run uvicorn` 启动使 stdio 子进程拿到 .venv 的 python）：无 Key / 错 Key 均 401，配额 60/分钟下第 61 次请求 429 且带 Retry-After，带 Key 列出 `demo_sql__echo`、调用返回 `echo: smoke`，`/servers` 显示 connected（2026-08-16）
-- **下一步动作**：进入阶段 4（完善 metrics 工具调用指标、demo_sql_server 升级 NL2SQL、Dockerfile/compose 收尾、公网部署拿 demo 链接、README 补演示说明）
-- **最后更新时间**：2026-08-16
 
 ---
 
