@@ -16,6 +16,14 @@ description: Use when writing MCP servers, MCP clients, tool registry, or transp
 - SSE：HTTP 长连接，用于远程 server
 - Streamable HTTP：现代推荐，优先用于自建 server
 
+### mcp 2.0.0 实测要点（踩过坑，别再凭记忆）
+
+- 服务端：`mcp.server.mcpserver.MCPServer`（无旧 fastmcp 模块）
+- 客户端 http 传输函数：`mcp.client.streamable_http.streamable_http_client`
+- **该函数只 yield `(read, write)` 两个值**（1.x 旧版会多 yield get_session_id；本项目曾因按 3 元组解包导致 http 传输全挂，日常只测 stdio 时不会暴露）
+- `MCPServer.run(transport="streamable-http", host=..., port=...)`：host/port 经 kwargs 透传 uvicorn，服务默认挂载路径 `/mcp`
+- 每个传输分支都要有集成测试覆盖（见 tests/test_mcp/test_http_transport.py）
+
 ## 工具注册（核心在 `app/mcp/registry.py`）
 
 - 读取 config YAML 中声明的 server，建立连接，聚合所有工具
