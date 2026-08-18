@@ -53,7 +53,7 @@ curl -X POST https://<项目名>.vercel.app/tools/demo_sql__ask/call \
 - **冷启动**：Serverless 实例冷启动时才连 MCP Server（lifespan），首请求略慢；热实例毫秒级。
 - **状态为实例级**：限流令牌桶、Prometheus 指标、/tmp 下的 SQLite 都是单实例内存/本地态，多实例不共享——MVP 演示无影响，企业生产应换外部存储（这正是 README「企业级拓展路径」里讲的）。
 - **演示 Key 是公开的**：`dev-key-please-change` 就在仓库里，任何拿到链接的人都能调（60 次/分钟限流兜底）。想换 Key：改 `config/gateway.vercel.yaml` 的 key 值，但别把新 Key 提交进公开仓库。
-- **构建源走的是阿里云 PyPI 镜像**（pyproject.toml 里的 `[[tool.uv.index]]`）：Vercel 海外构建机访问阿里云可能偏慢。若构建卡在装依赖，临时删掉该 index 段再 push 即可。
+- **构建源走的是阿里云 PyPI 镜像**（pyproject.toml 里的 `[[tool.uv.index]]`）：Vercel 海外构建机访问阿里云可能偏慢，一般只是慢不会失败。~~新版 uv 要求 index 条目带 `name`~~（已修复：条目已加 `name = "aliyun"`；若构建报 `tool.uv.index.0.name: Required` 说明仓库不是最新 main）。
 - **若 stdio 子进程在 Vercel 环境受限**（小概率，Lambda 系环境一般允许拉起 python 子进程）：备选方案是用仓库里已验证过的 `Dockerfile` 部署到 Render / Railway（Docker 运行时，无 Serverless 限制），步骤见下节。
 
 ## 备选：Render（Docker，最稳）

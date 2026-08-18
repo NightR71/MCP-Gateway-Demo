@@ -206,7 +206,7 @@ mcp-gateway/
   1. `app/mcp/transports.py` http 分支按 3 元组解包 `streamable_http_client`，但 **mcp 2.0.0 只 yield (read, write) 两个值**（不再返回 get_session_id）——阶段 2 只测过 stdio，该 bug 潜伏至 docker 冒烟才暴露，已修并补 http 集成测试
   2. `.dockerignore` 阶段 1 排除了 `servers/`，阶段 2 加了 `COPY servers` 却未同步——`docker compose build` 直接失败，已修
 - **阶段 4 验证结果**（2026-08-17）：`ruff check` + `ruff format` 通过；`pytest` **59/59**（13.75s）；`docker compose up --build` 双容器全链路：`registry_ready connected=1 tools=4`、无 Key 401、列出 4 工具、`demo_sql__ask`「有多少客户？」经 HTTP 返回 5、`/metrics` 含 `mcp_gateway_tool_calls_total{server="demo_sql",status="ok",tool="demo_sql__ask"} 1.0`；本地 uvicorn stdio 模式冒烟同样通过（「总销售额是多少？」→ 20289.0，与种子数据手算一致）
-- **Vercel 部署已备齐（2026-08-17，待用户操作）**：Vercel 官方文档确认 Python 运行时默认 3.12、支持 pyproject+uv.lock、支持 lifespan、自动识别 `app/main.py` 的 `app`——零代码改动。新增 `config/gateway.vercel.yaml`（SQLite 落 /tmp，函数文件系统只读）、`vercel.json`（maxDuration 60s）；**完整步骤与验收清单见 `docs/部署到Vercel.md`**（含 Render/Docker 备选）。需在 Vercel 项目配两个环境变量：`GATEWAY_CONFIG_FILE=config/gateway.vercel.yaml`、`DEMO_SQL_DB_PATH=/tmp/demo_sql.db`
+- **Vercel 部署已备齐（2026-08-17，待用户操作）**：Vercel 官方文档确认 Python 运行时默认 3.12、支持 pyproject+uv.lock、支持 lifespan、自动识别 `app/main.py` 的 `app`——零代码改动。新增 `config/gateway.vercel.yaml`（SQLite 落 /tmp，函数文件系统只读）、`vercel.json`（maxDuration 60s）；**完整步骤与验收清单见 `docs/部署到Vercel.md`**（含 Render/Docker 备选）。需在 Vercel 项目配两个环境变量：`GATEWAY_CONFIG_FILE=config/gateway.vercel.yaml`、`DEMO_SQL_DB_PATH=/tmp/demo_sql.db`。🐞 部署踩坑：Vercel 构建机的新版 uv 要求 `[[tool.uv.index]]` 必须带 `name`（本地旧版不强制），已修复（`name = "aliyun"`）
 - **下一步动作**：用户按 `docs/部署到Vercel.md` 部署拿 demo 链接 → README 补链接与演示录屏 → 进入阶段 5（examples/ Agent 调用示例、开源推广、向 MCP 生态提 PR）
 - **最后更新时间**：2026-08-17
 - **Git 身份**：NightR71 / 1553364473@qq.com（已配置）
