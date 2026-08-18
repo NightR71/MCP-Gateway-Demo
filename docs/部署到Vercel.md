@@ -4,6 +4,19 @@
 > 依据 Vercel 官方文档（2026-07 更新）：Python 运行时默认 3.12、支持 pyproject.toml + uv.lock 装依赖、
 > 支持 FastAPI lifespan 启动事件、自动识别 `app/main.py` 里的 `app` 实例——**本仓库已满足全部约定，零代码改动**。
 
+## ⚠️ 大陆访问限制（2026-08-17 实测）
+
+`*.vercel.app` 在大陆被 DNS 污染（实测解析到 Twitter/Facebook 的假 IP，TCP 443 不通，curl HTTP 000），
+且对 Vercel 真实 IP 的 SNI 连接也会被重置。**部署本身没问题**（污染生效前曾成功返回 /health 与
+鉴权 401），但国内面试官直接点开链接大概率失败。应对方案：
+
+- **绑自定义域名**（推荐，域名几十元/年）：Vercel → Domains → 加自己的域名，国内解析即正常
+- **国内云服务器**：用仓库已验证的 `docker-compose.yml` 双容器部署（阿里云/腾讯云轻量）
+- 暂时只要 Vercel 也可以：适合海外/会科学上网的观众
+
+**验收技巧**：本机被污染时，可用仓库里的 `demo-health` GitHub Actions 工作流
+（Actions → demo-health → Run workflow）从海外 Runner 跑第 4 节「部署后验收清单」。
+
 ## 仓库侧已备好的文件
 
 | 文件 | 作用 |
@@ -19,6 +32,8 @@
 1. **推送代码**：确认本仓库最新 main 已 push 到 GitHub。
 2. **导入项目**：Vercel Dashboard → Add New → Project → 选 `MCP-Gateway-Demo` 仓库。
    - Framework Preset 会自动识别为 **FastAPI**，无需手选；Root Directory 保持仓库根目录。
+   - 若构建报 `Invalid config ... tool.uv.index.0.name: Required`：仓库不是最新 main
+     （新版 uv 要求 index 带 name，已在 `823bdae` 修复）。
 3. **配环境变量**（Settings → Environment Variables，或导入时展开 Environment Variables）：
 
    | Name | Value | 说明 |
@@ -29,6 +44,9 @@
 4. **Deploy**，等构建完成，拿到 `https://<项目名>.vercel.app`。
 
 ## 部署后验收清单
+
+> 以下为 bash 语法。Windows PowerShell 里 `curl` 是 `Invoke-WebRequest` 的别名、语法不兼容，
+> 请用 Git Bash 跑，或改用 `curl.exe`（Win10+ 自带，逐字把 `curl` 换成 `curl.exe` 即可）。
 
 ```bash
 # 1. 健康检查（无需 Key）
