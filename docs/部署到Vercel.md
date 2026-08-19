@@ -24,8 +24,8 @@
 | `app/main.py` | Vercel 自动识别的入口（`app/` 内的 `main.py` + 顶层 `app` 变量） |
 | `pyproject.toml` + `uv.lock` | 依赖声明，Vercel 直接用它安装 |
 | `.python-version` | 固定 Python 3.12（Vercel 默认即 3.12） |
-| `config/gateway.vercel.yaml` | Vercel 专用配置：SQLite 路径改到 `/tmp`（函数文件系统只读，/tmp 除外） |
-| `vercel.json` | 把函数 maxDuration 提到 60s（冷启动要拉起 MCP 子进程） |
+| `config/gateway.vercel.yaml` | Vercel 专用配置：SQLite 路径改到 `/tmp`（函数文件系统只读，/tmp 除外）；demo server 走 `inprocess` 进程内加载 |
+| `vercel.json` | 把函数 maxDuration 提到 60s（预留冷启动余量） |
 
 ## 部署步骤（约 5 分钟）
 
@@ -38,8 +38,8 @@
 
    | Name | Value | 说明 |
    |---|---|---|
-   | `GATEWAY_CONFIG_FILE` | `config/gateway.vercel.yaml` | 指向 Vercel 专用配置（SQLite 落 /tmp） |
-   | `DEMO_SQL_DB_PATH` | `/tmp/demo_sql.db` | demo server 子进程的 SQLite 路径（继承自父进程环境） |
+   | `GATEWAY_CONFIG_FILE` | `config/gateway.vercel.yaml` | 指向 Vercel 专用配置（SQLite 落 /tmp、demo server 进程内加载） |
+   | `DEMO_SQL_DB_PATH` | `/tmp/demo_sql.db` | 可选：demo 库的 SQLite 路径；不配时默认路径不可写会自动回退 /tmp |
 
 4. **Deploy**，等构建完成，拿到 `https://<项目名>.vercel.app`。
 
@@ -64,7 +64,15 @@ curl -X POST https://<项目名>.vercel.app/tools/demo_sql__ask/call \
   -d '{"arguments": {"question": "有多少客户？"}}'
 ```
 
-> 首次请求是冷启动：lifespan 要拉起 demo server 子进程 + MCP 握手，等 3–10 秒属正常。
+> 首次请求是冷启动：lifespan 在进程内加载 demo server 并完成工具注册，等 1–3 秒属正常。
+
+## 为什么 demo server 不再拉子进程（2026-08-19 修复）
+
+原方案用 stdio 子进程拉起 `servers/demo_sql_server/server.py`，实测 Vercel 子进程的解释器
+看不到构建期安装的 site-packages（`ModuleNotFoundError: No module named 'mcp'`），导致工具
+注册数为 0。现改为 `inprocess` 传输：网关进程内直接 import 并复用 demo server 的 MCPServer
+实例（`app/mcp/client.py` 的 `InProcessClient`），与网关共用同一份依赖，彻底消除解释器环境
+差异，冷启动也更快。本地 / Docker 仍走 stdio / Streamable HTTP，不受影响。
 
 ## 已知注意事项（如实告知面试官也可）
 
@@ -72,7 +80,7 @@ curl -X POST https://<项目名>.vercel.app/tools/demo_sql__ask/call \
 - **状态为实例级**：限流令牌桶、Prometheus 指标、/tmp 下的 SQLite 都是单实例内存/本地态，多实例不共享——MVP 演示无影响，企业生产应换外部存储（这正是 README「企业级拓展路径」里讲的）。
 - **演示 Key 是公开的**：`dev-key-please-change` 就在仓库里，任何拿到链接的人都能调（60 次/分钟限流兜底）。想换 Key：改 `config/gateway.vercel.yaml` 的 key 值，但别把新 Key 提交进公开仓库。
 - **构建源走的是阿里云 PyPI 镜像**（pyproject.toml 里的 `[[tool.uv.index]]`）：Vercel 海外构建机访问阿里云可能偏慢，一般只是慢不会失败。~~新版 uv 要求 index 条目带 `name`~~（已修复：条目已加 `name = "aliyun"`；若构建报 `tool.uv.index.0.name: Required` 说明仓库不是最新 main）。
-- **若 stdio 子进程在 Vercel 环境受限**（小概率，Lambda 系环境一般允许拉起 python 子进程）：备选方案是用仓库里已验证过的 `Dockerfile` 部署到 Render / Railway（Docker 运行时，无 Serverless 限制），步骤见下节。
+- **stdio 子进程曾在 Vercel 环境受限**（子进程解释器看不到构建期依赖，已踩中）：已通过 `inprocess` 进程内传输解决（见上节）；若未来还有 Serverless 不适配场景，备选方案是用仓库里已验证过的 `Dockerfile` 部署到 Render / Railway（Docker 运行时，无 Serverless 限制），步骤见下节。
 
 ## 备选：Render（Docker，最稳）
 
