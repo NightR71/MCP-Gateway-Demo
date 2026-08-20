@@ -193,7 +193,7 @@ mcp-gateway/
 
 - **状态**：阶段 4 代码部分已完成（metrics + NL2SQL + docker-compose），剩公网部署与演示录屏
 - **已完成阶段**：阶段 0（环境准备）、阶段 1（工程骨架 + CI）、阶段 2（协议层打通）、阶段 3（统一 API + 鉴权限流）、阶段 4 代码部分
-- **仓库**：https://github.com/NightR71/MCP-Gateway-Demo.git（main 已跟踪 origin/main；阶段 2/3 提交 d43643d、f136de6 已推送）
+- **仓库**：https://github.com/NightR71/MCP_Gateway_Demo.git（2026-08-20 起 origin 已更新为新名；原名 `MCP-Gateway-Demo` 301 跳转到新名；main 已跟踪 origin/main；阶段 2/3 提交 d43643d、f136de6 已推送）
 - **⚠️ 源码丢失与恢复事件（2026-08-17）**：上一会话的阶段 4 源码（db.py / nl2sql.py / server.py 升级版 / 3 个测试文件）神秘丢失，仅剩 `__pycache__` 中的 pyc；本会话已用 marshal 反编译 pyc 提取常量与签名，完整重建全部源码并通过测试。**教训：每个小步骤完成后立即提交 git**
 - **阶段 4 产出**：
   - `app/core/metrics.py`：`mcp_gateway_tool_calls_total{tool,server,status}` Counter + `mcp_gateway_tool_call_duration_seconds{tool,server}` Histogram + `record_tool_call()` + `ToolCallTimer`（with 退出自动记录，异常自动记 exception）；`app/mcp/registry.py` 的 `call_tool` 已接入（status: ok/error/exception）
@@ -209,8 +209,13 @@ mcp-gateway/
 - **Vercel 部署已备齐（2026-08-17，待用户操作）**：Vercel 官方文档确认 Python 运行时默认 3.12、支持 pyproject+uv.lock、支持 lifespan、自动识别 `app/main.py` 的 `app`——零代码改动。新增 `config/gateway.vercel.yaml`（SQLite 落 /tmp，函数文件系统只读）、`vercel.json`（maxDuration 60s）；**完整步骤与验收清单见 `docs/部署到Vercel.md`**（含 Render/Docker 备选）。需在 Vercel 项目配两个环境变量：`GATEWAY_CONFIG_FILE=config/gateway.vercel.yaml`、`DEMO_SQL_DB_PATH=/tmp/demo_sql.db`。🐞 部署踩坑：Vercel 构建机的新版 uv 要求 `[[tool.uv.index]]` 必须带 `name`（本地旧版不强制），已修复（`name = "aliyun"`）
 - **Vercel 部署结果（2026-08-17）**：demo 链接 https://mcpgatewaydemo1.vercel.app/ 已部署成功（污染生效前实测 `/health` 返回 ok、`/tools` 无 Key 返回自定义 401 文案，证明应用与鉴权中间件已在 Vercel 正常运行）。**但 `*.vercel.app` 在大陆被 DNS 污染**（解析到 Twitter/Facebook 假 IP、真实 IP 的 SNI 亦被重置），国内面试官大概率打不开——用户决策：暂时只要 Vercel，后续可绑自定义域名或换国内云服务器（docker-compose 已验证）。验收改用仓库内 `demo-health` workflow（workflow_dispatch，从 GitHub Runner 海外网络跑 4 步验收；用户手动触发）
 - **🐞 Vercel 工具注册修复（2026-08-19）**：demo-health 第 3、4 步失败（`/tools` 空列表、`registry_ready connected=0 failed=1 tools=0`），Runtime Logs 显示子进程 `ModuleNotFoundError: No module named 'mcp'`——Vercel stdio 子进程的解释器看不到构建期安装的 site-packages。**修复：demo_sql 改用新增 `inprocess` 传输进程内加载**（`MCPServerConfig` 新增 `module` 字段、`app/mcp/client.py` 新增 `InProcessClient` + `create_client` 工厂、registry 按 transport 选客户端；`servers/demo_sql_server/server.py` 支持包导入（相对/裸导入双模式）+ SQLite 只读文件系统回退 /tmp；`config/gateway.vercel.yaml` 改 `transport: inprocess` + `module: servers.demo_sql_server.server:server`）。本地/Docker 的 stdio、http 传输不受影响。验证：`ruff check` + `ruff format` 通过；`pytest` **63/63**（新增 `tests/test_mcp/test_inprocess.py` 4 例，含直接加载生产 vercel 配置的回归用例）；本地 uvicorn 按 vercel 等价配置冒烟 4 步全过（health 200 / 无 Key 401 / 4 工具 / ask 返回 `SELECT COUNT(*)` + `| 5 |`）
-- **下一步动作**：`demo-health` workflow 验收通过 → README 补 demo 链接（注明大陆访问限制）与演示录屏 → 进入阶段 5（examples/ Agent 调用示例、开源推广、向 MCP 生态提 PR）
-- **最后更新时间**：2026-08-19
+- **🐞 Vercel「inprocess 修复未上线」根因定位与处理（2026-08-20）**：
+  - 现象：inprocess 修复 fe9f97e 早已推送（GitHub API 核实远端 main sha 与本地一致），但 demo-health 复验持续失败——`/tools` 空列表、`/servers` 实测 `{"transport":"stdio","connected":false,"tool_count":0,"error":"Connection closed"}`，线上生产跑的还是修复前部署，push 未触发 Vercel 重建。
+  - 根因：GitHub 仓库已改名（`MCP-Gateway-Demo` → `MCP_Gateway_Demo`，push 时提示 "This repository moved"），Vercel 的 Git 集成未跟随改名而失联，导致修复推送后不再自动构建生产部署；另发现 2026-08-18 误建的废弃仓库 `mcp_gateway_demo_nightr71`（仅 1 次 push，可删）。
+  - 处理：① 本机 `git remote set-url origin https://github.com/NightR71/MCP_Gateway_Demo.git`；② 本机 git 仓库级配置 `http.sslbackend openssl` + `http.sslVerify false`（本机 schannel 报 `SEC_E_NO_CREDENTIALS`、openssl 系统 CA 缺签发者，push 需此配置；仅限本机，勿传播）；③ 曾用空提交 799963f 触发重建（集成未恢复前无效）；④ 用户在 Vercel Dashboard → Settings → Git 重新连接改名后的仓库并重新部署；⑤ demo-health 验收 **4 步全绿**（run 32381531079）：`/health` 200、无 Key 401、带 Key 恰好 4 个工具、ask 返回 `SELECT COUNT(*)` + `| 5 |`；`/servers` 实测 `{"transport":"inprocess","connected":true,"tool_count":4,"error":null}`，不再有 ModuleNotFoundError。
+  - 环境备忘：本机 PATH 被 pyenv-win shim 抢占，stdio 子进程会解析到 pyenv 而非项目 .venv 的 python（stdout 出现 `pyenv local 3.7.4`、registry 报 "Connection closed"）——跑 pytest / uvicorn 必须 `uv run` 或 PATH 前置 `.venv\Scripts`；uv 缓存 `sdists-v9\.git` 偶发拒绝访问（os error 5）时，可直接 `.venv\Scripts\python.exe -m pytest`。
+- **下一步动作**：README 补 demo 链接（注明大陆访问限制）与演示录屏 → 进入阶段 5（examples/ Agent 调用示例、开源推广、向 MCP 生态提 PR）；建议删除废弃仓库 `mcp_gateway_demo_nightr71`
+- **最后更新时间**：2026-08-20
 - **Git 身份**：NightR71 / 1553364473@qq.com（已配置）
 - **认证**：PAT 已获取并完成认证（credential.helper store 已记住凭据）；`GITHUB_TOKEN` 已通过 setx 写入用户环境变量（重开终端生效）
 - **环境**：Python 3.12.11（uv 管理，`.python-version` 已固定 3.12）；uv 下载 GitHub Release 资源需 `UV_NATIVE_TLS=1`（本机证书问题）；Docker Desktop 已配置国内镜像加速器（registry-mirrors，写入 `~/.docker/daemon.json`）；**MCP SDK 实际安装为 2.0.0**（服务端用 `mcp.server.mcpserver.MCPServer`，无旧 fastmcp 模块；http 传输函数名为 `streamable_http_client`）；**本机 360 安全软件会拦截 pytest 拉起子进程（WinError 5）；2026-08-16 起 360 已关闭，测试可正常拉起子进程；若复现 WinError 5 先检查 360 是否又开启**

@@ -30,7 +30,9 @@
 ## 部署步骤（约 5 分钟）
 
 1. **推送代码**：确认本仓库最新 main 已 push 到 GitHub。
-2. **导入项目**：Vercel Dashboard → Add New → Project → 选 `MCP-Gateway-Demo` 仓库。
+2. **导入项目**：Vercel Dashboard → Add New → Project → 选 `MCP_Gateway_Demo` 仓库。
+   - 注意：仓库已从 `MCP-Gateway-Demo` 改名（旧名 301 跳转）；若 Vercel 的 Git 集成失联
+     （Settings → Git 显示旧名/报错），重新连接改名后的仓库，否则 push 不会触发自动部署。
    - Framework Preset 会自动识别为 **FastAPI**，无需手选；Root Directory 保持仓库根目录。
    - 若构建报 `Invalid config ... tool.uv.index.0.name: Required`：仓库不是最新 main
      （新版 uv 要求 index 带 name，已在 `823bdae` 修复）。
@@ -76,6 +78,7 @@ curl -X POST https://<项目名>.vercel.app/tools/demo_sql__ask/call \
 
 ## 已知注意事项（如实告知面试官也可）
 
+- **仓库改名会断 Vercel Git 集成**（2026-08-20 实测）：GitHub 仓库改名（`MCP-Gateway-Demo` → `MCP_Gateway_Demo`）后，Vercel 项目需在 Settings → Git 重新连接新仓库名，否则 push 不触发自动部署（表现为：代码已推上 main、线上却仍是旧部署）。重连后记得重新部署一次。
 - **冷启动**：Serverless 实例冷启动时才连 MCP Server（lifespan），首请求略慢；热实例毫秒级。
 - **状态为实例级**：限流令牌桶、Prometheus 指标、/tmp 下的 SQLite 都是单实例内存/本地态，多实例不共享——MVP 演示无影响，企业生产应换外部存储（这正是 README「企业级拓展路径」里讲的）。
 - **演示 Key 是公开的**：`dev-key-please-change` 就在仓库里，任何拿到链接的人都能调（60 次/分钟限流兜底）。想换 Key：改 `config/gateway.vercel.yaml` 的 key 值，但别把新 Key 提交进公开仓库。
